@@ -1,9 +1,9 @@
 import os
 import datetime
 import pandas as pd
-import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import tensorflow as tf # type: ignore
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard # type: ignore
+from tensorflow.keras.preprocessing.image import ImageDataGenerator # type: ignore
 from model.cnn_model import build_cnn_model
 
 # Paths
