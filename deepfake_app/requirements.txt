@@ -1,0 +1,57 @@
+# Core frameworks
+fastapi
+uvicorn
+streamlit
+
+# Optional uvicorn performance extras (no PyYAML conflict)
+watchfiles
+httptools
+
+# Machine learning & Deep Learning
+tensorflow==2.17.0  # or the highest available for your Python version
+torch
+torchvision
+scikit-learn
+numpy
+pandas
+matplotlib
+opencv-python
+imgaug
+albumentations
+Pillow
+
+# GANs and image generation
+imageio
+# (if using a specific fork, adjust the URL accordingly)
+# For example, if using a forked version of imageio-ffmpeg: 
+imageio-ffmpeg
+
+# StyleGAN dependencies (adjust if using a fork)
+click
+tqdm
+requests
+
+# Deepfake detection utilities
+imutils
+
+# FastAPI extras
+python-multipart
+jinja2
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Serialization
+pydantic
+
+# YAML & config
+pyyaml==6.0.2
+
+# Logging & monitoring
+loguru
+
+# Others
+aiofiles
+httpx
+python-multipart
