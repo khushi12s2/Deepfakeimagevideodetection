@@ -3,6 +3,7 @@ from tensorflow.keras.models import Sequential  # type: ignore
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense, BatchNormalization, GlobalAveragePooling2D  # type: ignore
 from tensorflow.keras.optimizers import Adam  # type: ignore
 from tensorflow.keras.regularizers import l2  # type: ignore
+from tensorflow.keras.callbacks import ReduceLROnPlateau  # type: ignore
 
 
 def build_cnn_model(input_shape=(128, 128, 3), learning_rate=0.00005):
@@ -45,3 +46,12 @@ def build_cnn_model(input_shape=(128, 128, 3), learning_rate=0.00005):
                   metrics=['accuracy'])
 
     return model
+
+
+def get_advanced_callbacks(save_path='saved_model/deepfake_cnn.h5', patience=5):
+    return [
+        ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=3, verbose=1, min_lr=1e-7),
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True),
+        tf.keras.callbacks.ModelCheckpoint(save_path, monitor='val_accuracy', save_best_only=True, verbose=1),
+        tf.keras.callbacks.TensorBoard(log_dir='logs/tensorboard', histogram_freq=1)
+    ]
