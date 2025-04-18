@@ -47,6 +47,8 @@ def build_cnn_model(input_shape=(128, 128, 3), learning_rate=0.00005):
 
     return model
 
+import tensorflow as tf  # type: ignore
+from tensorflow.keras.callbacks import TensorBoard  # type: ignore
 
 def get_advanced_callbacks(save_path='saved_model/deepfake_cnn.h5', patience=5):
     return [
