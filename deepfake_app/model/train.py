@@ -1,80 +1,73 @@
+# model/train.py - Enhanced training script with advanced callbacks and test evaluation logging
 import os
 import datetime
 import pandas as pd
 import tensorflow as tf # type: ignore
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard # type: ignore
 from tensorflow.keras.preprocessing.image import ImageDataGenerator # type: ignore
-from model.cnn_model import build_cnn_model
+from model.cnn_model import build_cnn_model, get_advanced_callbacks
 
 # Paths
-data_dir = 'data'
-train_dir = os.path.join(data_dir, 'train')
-val_dir = os.path.join(data_dir, 'val')
-test_dir = os.path.join(data_dir, 'test')
+train_dir = 'data/train'
+val_dir = 'data/val'
+test_dir = 'data/test'
 model_save_path = 'saved_model/deepfake_cnn.h5'
 history_log_path = 'logs/training_history.csv'
-tensorboard_log_dir = 'logs/tensorboard/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+session_log_path = 'logs/session_log.csv'
 
-# Image parameters
-img_size = (128, 128)
-batch_size = 32
+def train_model():
+    os.makedirs("logs/tensorboard", exist_ok=True)
 
-# Data generators
-train_datagen = ImageDataGenerator(
-    rescale=1./255,
-    horizontal_flip=True,
-    rotation_range=10,
-    zoom_range=0.1,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    shear_range=0.1
-)
+    # Data generators
+    train_datagen = ImageDataGenerator(rescale=1./255)
+    val_datagen = ImageDataGenerator(rescale=1./255)
+    test_datagen = ImageDataGenerator(rescale=1./255)
 
-val_test_datagen = ImageDataGenerator(rescale=1./255)
+    train_gen = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=(128, 128),
+        batch_size=32,
+        class_mode='binary'
+    )
+    val_gen = val_datagen.flow_from_directory(
+        val_dir,
+        target_size=(128, 128),
+        batch_size=32,
+        class_mode='binary'
+    )
+    test_gen = test_datagen.flow_from_directory(
+        test_dir,
+        target_size=(128, 128),
+        batch_size=32,
+        class_mode='binary',
+        shuffle=False
+    )
 
-train_gen = train_datagen.flow_from_directory(
-    train_dir,
-    target_size=img_size,
-    batch_size=batch_size,
-    class_mode='binary'
-)
+    # Build and train model
+    model = build_cnn_model(input_shape=(128, 128, 3))
+    callbacks = get_advanced_callbacks(save_path=model_save_path)
 
-val_gen = val_test_datagen.flow_from_directory(
-    val_dir,
-    target_size=img_size,
-    batch_size=batch_size,
-    class_mode='binary'
-)
+    history = model.fit(
+        train_gen,
+        validation_data=val_gen,
+        epochs=30,
+        callbacks=callbacks,
+        verbose=1
+    )
 
-test_gen = val_test_datagen.flow_from_directory(
-    test_dir,
-    target_size=img_size,
-    batch_size=batch_size,
-    class_mode='binary',
-    shuffle=False
-)
+    # Save training history
+    history_df = pd.DataFrame(history.history)
+    history_df.to_csv(history_log_path, index=False)
 
-# Model
-model = build_cnn_model(input_shape=(128, 128, 3))
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    # Evaluate on test set
+    test_loss, test_acc = model.evaluate(test_gen)
+    print(f"Test Accuracy: {test_acc*100:.2f}%")
 
-# Callbacks
-early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-model_checkpoint = ModelCheckpoint(model_save_path, save_best_only=True)
-tensorboard_cb = TensorBoard(log_dir=tensorboard_log_dir, histogram_freq=1)
+    # Log test result to session_log
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result = pd.DataFrame([[now, test_acc, test_loss]], columns=["timestamp", "test_accuracy", "test_loss"])
+    if os.path.exists(session_log_path):
+        result.to_csv(session_log_path, mode='a', index=False, header=False)
+    else:
+        result.to_csv(session_log_path, index=False)
 
-# Train
-history = model.fit(
-    train_gen,
-    validation_data=val_gen,
-    epochs=30,
-    callbacks=[early_stopping, model_checkpoint, tensorboard_cb]
-)
-
-# Log training history to CSV
-history_df = pd.DataFrame(history.history)
-history_df.to_csv(history_log_path, index=False)
-
-# Final evaluation on test data
-loss, acc = model.evaluate(test_gen)
-print(f"Final Test Accuracy: {acc*100:.2f}%")
+    return model, history
