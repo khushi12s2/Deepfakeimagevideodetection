@@ -1,6 +1,6 @@
 # utils/dataset_loader.py
 
-import kagglehub
+import kagglehub # type: ignore
 import zipfile
 import shutil
 import os

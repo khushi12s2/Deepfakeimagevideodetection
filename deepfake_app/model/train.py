@@ -1,73 +1,65 @@
-# model/train.py - Enhanced training script with advanced callbacks and test evaluation logging
+# utils/dataset_loader.py
+
+import kagglehub
+import zipfile
+import shutil
 import os
-import datetime
-import pandas as pd
-import tensorflow as tf # type: ignore
-from tensorflow.keras.preprocessing.image import ImageDataGenerator # type: ignore
-from model.cnn_model import build_cnn_model, get_advanced_callbacks
+from keras.models import load_model
 
-# Paths
-train_dir = 'data/train'
-val_dir = 'data/val'
-test_dir = 'data/test'
-model_save_path = 'saved_model/deepfake_cnn.h5'
-history_log_path = 'logs/training_history.csv'
-session_log_path = 'logs/session_log.csv'
+MODEL_PATH = "saved_model/deepfake_cnn.h5"
 
-def train_model():
-    os.makedirs("logs/tensorboard", exist_ok=True)
+# Load model safely
+if os.path.exists(MODEL_PATH):
+    model = load_model(MODEL_PATH)
+else:
+    model = None
+    print(f"[WARN] Model file not found at {MODEL_PATH}. Prediction endpoints will be inactive.")
 
-    # Data generators
-    train_datagen = ImageDataGenerator(rescale=1./255)
-    val_datagen = ImageDataGenerator(rescale=1./255)
-    test_datagen = ImageDataGenerator(rescale=1./255)
+def find_subfolder_containing(target_folder_name, base_folder="unzipped_data"):
+    for root, dirs, _ in os.walk(base_folder):
+        if target_folder_name in dirs:
+            return os.path.join(root, target_folder_name)
+    raise FileNotFoundError(f"Folder '{target_folder_name}' not found in {base_folder}")
 
-    train_gen = train_datagen.flow_from_directory(
-        train_dir,
-        target_size=(128, 128),
-        batch_size=32,
-        class_mode='binary'
-    )
-    val_gen = val_datagen.flow_from_directory(
-        val_dir,
-        target_size=(128, 128),
-        batch_size=32,
-        class_mode='binary'
-    )
-    test_gen = test_datagen.flow_from_directory(
-        test_dir,
-        target_size=(128, 128),
-        batch_size=32,
-        class_mode='binary',
-        shuffle=False
-    )
+def download_and_prepare():
+    print("[INFO] Downloading dataset from Kaggle...")
 
-    # Build and train model
-    model = build_cnn_model(input_shape=(128, 128, 3))
-    callbacks = get_advanced_callbacks(save_path=model_save_path)
+    # Step 1: Download the dataset
+    path = kagglehub.dataset_download("manjilkarki/deepfake-and-real-images")
+    print("[INFO] Dataset downloaded to:", path)
 
-    history = model.fit(
-        train_gen,
-        validation_data=val_gen,
-        epochs=30,
-        callbacks=callbacks,
-        verbose=1
-    )
+    # Step 2: Extract all ZIP files into unzipped_data/
+    zip_files = [f for f in os.listdir(path) if f.endswith(".zip")]
+    for zip_file in zip_files:
+        zip_path = os.path.join(path, zip_file)
+        print(f"[INFO] Extracting {zip_path}...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall("unzipped_data")
 
-    # Save training history
-    history_df = pd.DataFrame(history.history)
-    history_df.to_csv(history_log_path, index=False)
+    # Step 3: Locate and move real/fake images to data folder
+    for label in ["real", "fake"]:
+        try:
+            src_folder = find_subfolder_containing(label)
+            dst_folder = os.path.join("data", label)
+            os.makedirs(dst_folder, exist_ok=True)
 
-    # Evaluate on test set
-    test_loss, test_acc = model.evaluate(test_gen)
-    print(f"Test Accuracy: {test_acc*100:.2f}%")
+            for file in os.listdir(src_folder):
+                src_path = os.path.join(src_folder, file)
+                dst_path = os.path.join(dst_folder, file)
+                shutil.move(src_path, dst_path)
 
-    # Log test result to session_log
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    result = pd.DataFrame([[now, test_acc, test_loss]], columns=["timestamp", "test_accuracy", "test_loss"])
-    if os.path.exists(session_log_path):
-        result.to_csv(session_log_path, mode='a', index=False, header=False)
+            print(f"[INFO] Moved {label} images to {dst_folder}")
+
+        except FileNotFoundError as e:
+            print(f"[ERROR] {e}")
+
+    print("[INFO] Dataset setup complete.")
+
+# Optional: run from CLI or FastAPI backend
+if __name__ == "__main__":
+    download_and_prepare()
+    # Ensure the model is loaded for CLI usage
+    if model is None:
+        print("[ERROR] Model not loaded. Please check the model path.")
     else:
-        result.to_csv(session_log_path, index=False)
-
-    return model, history
+        print("[INFO] Model loaded successfully.")  
