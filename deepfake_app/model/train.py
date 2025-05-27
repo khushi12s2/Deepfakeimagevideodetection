@@ -1,10 +1,10 @@
 # utils/dataset_loader.py
 
-import kagglehub
+import kagglehub # type: ignore
 import zipfile
 import shutil
 import os
-from keras.models import load_model
+from keras.models import load_model # type: ignore
 
 MODEL_PATH = "saved_model/deepfake_cnn.h5"
 
